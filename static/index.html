@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOCOL VANTAGE — Moteur Walk-Forward</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green-950:#0c1712; --green-900:#122019; --green-800:#1a2e23; --green-700:#24402f;
+    --parchment:#ede6d6; --parchment-dim:#b9b29e;
+    --gold:#c9a227; --gold-bright:#e4c04f;
+    --red:#c0503f; --pass:#6f9c5f;
+    --mono:'JetBrains Mono',monospace; --display:'Fraunces',serif; --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--green-950);color:var(--parchment);font-family:var(--body);
+       background-image:radial-gradient(ellipse at top,var(--green-900),var(--green-950) 65%);
+       min-height:100vh;}
+  a{color:var(--gold-bright);}
+  ::selection{background:var(--gold);color:var(--green-950);}
+
+  header{padding:2.6rem 1.5rem 1.6rem;text-align:center;border-bottom:1px solid var(--green-700);}
+  header h1{font-family:var(--display);font-weight:700;font-size:clamp(1.8rem,4vw,2.6rem);
+             letter-spacing:.02em;margin:0 0 .3rem;color:var(--parchment);}
+  header h1 span{color:var(--gold-bright);}
+  header p{margin:0;color:var(--parchment-dim);font-size:.92rem;letter-spacing:.04em;
+            text-transform:uppercase;font-family:var(--mono);}
+
+  main{max-width:1080px;margin:0 auto;padding:2rem 1.25rem 4rem;}
+
+  .entry{display:flex;gap:.6rem;background:var(--green-900);border:1px solid var(--green-700);
+         border-radius:6px;padding:.9rem;margin-bottom:1.6rem;align-items:flex-end;}
+  .entry textarea{flex:1;background:var(--green-950);border:1px solid var(--green-700);color:var(--parchment);
+               border-radius:4px;padding:.7rem .9rem;font-family:var(--mono);font-size:.85rem;
+               resize:vertical;min-height:4.4rem;}
+  .entry textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .entry .hint{font-family:var(--body);font-size:.7rem;color:var(--parchment-dim);margin-top:.35rem;}
+  .entry-col{flex:1;display:flex;flex-direction:column;}
+  .entry button{background:var(--gold);color:var(--green-950);border:none;border-radius:4px;
+                padding:.7rem 1.4rem;font-weight:700;font-family:var(--body);cursor:pointer;
+                letter-spacing:.02em;transition:background .15s;align-self:flex-end;}
+  .entry button:hover{background:var(--gold-bright);}
+  .entry button:disabled{opacity:.5;cursor:default;}
+
+  .discover-toggle{background:none;border:none;color:var(--gold-bright);font-family:var(--mono);
+                    font-size:.72rem;cursor:pointer;text-decoration:underline;margin-bottom:.8rem;padding:0;}
+  .discover-panel{display:none;background:var(--green-900);border:1px solid var(--green-700);
+                   border-radius:6px;padding:.9rem;margin-bottom:1rem;}
+  .discover-panel.open{display:block;}
+  .discover-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.7rem;}
+  .discover-row input{background:var(--green-950);border:1px solid var(--green-700);color:var(--parchment);
+               border-radius:4px;padding:.5rem .7rem;font-family:var(--mono);font-size:.82rem;}
+  .discover-row input[type=date]{flex:0 0 150px;}
+  .discover-row input[type=text]{flex:1;min-width:140px;}
+  .discover-row select{flex:1;min-width:160px;background:var(--green-950);border:1px solid var(--green-700);color:var(--parchment);padding:0.45rem 0.6rem;border-radius:6px;font-size:0.95rem;}
+  .discover-row input[type=number]{flex:0 0 90px;}
+  .discover-row button{background:var(--gold);color:var(--green-950);border:none;border-radius:4px;
+                padding:.5rem 1rem;font-weight:700;cursor:pointer;font-family:var(--body);}
+  .discover-results{display:flex;flex-direction:column;gap:.4rem;}
+  .discover-result{background:var(--green-950);border:1px solid var(--green-700);border-radius:4px;
+                    padding:.5rem .7rem;cursor:pointer;font-size:.8rem;text-align:left;color:var(--parchment);}
+  .discover-result:hover{border-color:var(--gold);}
+  .discover-result .score{font-family:var(--mono);color:var(--gold-bright);font-size:.68rem;}
+
+  .layout{display:grid;grid-template-columns:220px 1fr;gap:1.5rem;}
+  @media (max-width:760px){.layout{grid-template-columns:1fr;}}
+
+  .ticker{border:1px solid var(--green-700);border-radius:6px;background:var(--green-900);
+          padding:.8rem;height:fit-content;}
+  .ticker h3{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+             color:var(--parchment-dim);margin:0 0 .6rem;}
+  .ticker-item{display:block;width:100%;text-align:left;background:none;border:none;color:var(--parchment);
+               padding:.5rem .4rem;border-radius:4px;cursor:pointer;font-size:.82rem;
+               border-bottom:1px dashed var(--green-700);}
+  .ticker-item:hover{background:var(--green-800);}
+  .ticker-item .hippo{font-weight:600;}
+  .ticker-item .st{display:block;font-family:var(--mono);font-size:.68rem;color:var(--parchment-dim);
+                    margin-top:.15rem;}
+
+  .panel{border:1px solid var(--green-700);border-radius:6px;background:var(--green-900);padding:1.4rem;}
+  .placeholder{color:var(--parchment-dim);font-family:var(--mono);font-size:.85rem;text-align:center;
+               padding:3rem 1rem;}
+
+  .stages{display:flex;gap:.4rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+  .stage{flex:1;min-width:120px;padding:.5rem .7rem;border-radius:4px;background:var(--green-800);
+         border:1px solid var(--green-700);font-family:var(--mono);font-size:.68rem;
+         text-transform:uppercase;letter-spacing:.03em;color:var(--parchment-dim);text-align:center;}
+  .stage.active{border-color:var(--gold);color:var(--gold-bright);animation:pulse 1.4s infinite;}
+  .stage.done{border-color:var(--pass);color:var(--pass);}
+  .stage.error{border-color:var(--red);color:var(--red);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+
+  h2{font-family:var(--display);font-size:1.4rem;margin:0 0 .2rem;}
+  .sub{color:var(--parchment-dim);font-family:var(--mono);font-size:.78rem;margin-bottom:1.2rem;}
+
+  table{width:100%;border-collapse:collapse;font-size:.86rem;margin-bottom:1.6rem;}
+  th{text-align:left;font-family:var(--mono);font-size:.68rem;text-transform:uppercase;
+     letter-spacing:.05em;color:var(--parchment-dim);border-bottom:1px solid var(--green-700);
+     padding:.45rem .5rem;}
+  td{padding:.5rem;border-bottom:1px solid var(--green-800);font-family:var(--mono);}
+  td.nom{font-family:var(--body);}
+  tr:hover td{background:var(--green-800);}
+  .chip{display:inline-block;padding:.12rem .5rem;border-radius:10px;font-size:.68rem;
+        font-family:var(--mono);border:1px solid;}
+  .chip.T1{color:#e0745f;border-color:#e0745f;}
+  .chip.T2{color:#e0b34f;border-color:#e0b34f;}
+  .chip.T3{color:#7fb3d5;border-color:#7fb3d5;}
+  .chip.T4a,.chip.T4b{color:#a582d1;border-color:#a582d1;}
+  .chip.pass{color:var(--pass);border-color:var(--pass);}
+  .chip.fail{color:var(--red);border-color:var(--red);}
+
+  .ticket-strip{display:flex;gap:.5rem;overflow-x:auto;padding:1rem 0 1.4rem;margin-bottom:1rem;}
+  .slot{min-width:108px;background:var(--green-950);border:1px dashed var(--gold);border-radius:8px;
+        padding:.7rem .6rem;text-align:center;flex-shrink:0;}
+  .slot .pos{font-family:var(--mono);font-size:.68rem;color:var(--gold-bright);letter-spacing:.06em;}
+  .slot .num{font-family:var(--display);font-size:1.6rem;font-weight:700;margin:.2rem 0;}
+  .slot .name{font-size:.72rem;color:var(--parchment-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .slot.reserve{border-style:solid;opacity:.75;}
+
+  .stat-row{display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:1.4rem;}
+  .stat{background:var(--green-950);border:1px solid var(--green-700);border-radius:6px;
+        padding:.7rem 1rem;min-width:150px;}
+  .stat .label{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;color:var(--parchment-dim);}
+  .stat .value{font-family:var(--display);font-size:1.5rem;font-weight:600;color:var(--gold-bright);}
+
+  .constraints{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.5rem;}
+  .constraint{background:var(--green-950);border:1px solid var(--green-700);border-radius:4px;
+              padding:.55rem .7rem;font-size:.78rem;}
+  .constraint .rule{font-family:var(--mono);font-weight:700;}
+  .constraint .detail{color:var(--parchment-dim);font-size:.72rem;margin-top:.15rem;}
+
+  .mention{margin-top:1.8rem;padding-top:1rem;border-top:1px dashed var(--green-700);
+           font-size:.72rem;color:var(--parchment-dim);font-style:italic;}
+  .error-box{background:rgba(192,80,63,.12);border:1px solid var(--red);border-radius:6px;
+             padding:.9rem;color:#e6a89c;font-family:var(--mono);font-size:.78rem;white-space:pre-wrap;}
+
+  .audit-btn{background:var(--green-800);color:var(--gold-bright);border:1px solid var(--gold);
+             border-radius:4px;padding:.6rem 1.1rem;font-weight:700;cursor:pointer;margin:1rem 0;
+             font-family:var(--body);}
+  .audit-btn:hover{background:var(--green-700);}
+  .audit-box{margin-top:1rem;border-top:1px solid var(--green-700);padding-top:1rem;}
+  .audit-stat{font-family:var(--mono);font-size:.85rem;margin-bottom:.8rem;}
+  .audit-stat b{color:var(--gold-bright);font-size:1.3rem;}
+  .miss-card{background:var(--green-950);border:1px solid var(--red);border-radius:6px;
+             padding:.7rem .9rem;margin-bottom:.6rem;font-size:.82rem;}
+  .miss-card .title{font-weight:700;color:#e6a89c;}
+  .miss-card ul{margin:.4rem 0 0;padding-left:1.1rem;font-size:.76rem;color:var(--parchment-dim);}
+  .over-card{background:var(--green-950);border:1px solid var(--gold);border-radius:6px;
+             padding:.7rem .9rem;margin-bottom:.6rem;font-size:.82rem;}
+  .over-card ul{margin:.4rem 0 0;padding-left:1.1rem;font-size:.76rem;color:var(--parchment-dim);}
+  .audit-note{background:var(--green-900);border:1px dashed var(--parchment-dim);border-radius:4px;
+              padding:.6rem .8rem;font-size:.74rem;color:var(--parchment-dim);margin-top:.8rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PROTOCOL <span>VANTAGE</span></h1>
+  <p>Moteur d'exécution walk-forward · <span id="appVersion">v1.29.21</span></p>
+</header>
+
+<main>
+  <button class="discover-toggle" onclick="toggleDiscover()">Je ne connais pas l'URL — rechercher par date/hippodrome/course</button>
+  <div class="discover-panel" id="discoverPanel">
+    <div class="discover-row">
+      <input type="date" id="discDate" />
+      <select id="discHippo" title="Hippodromes ayant accueilli un Quinté+ (3 dernières années)">
+        <option value="">— Hippodrome (optionnel) —</option>
+      </select>
+      <input type="number" id="discReunion" placeholder="N° réunion (ex: 1)" />
+      <input type="number" id="discCourse" placeholder="N° course (ex: 7)" />
+      <input type="text" id="discName" placeholder="Nom du prix (optionnel, aide au tri)" />
+      <button onclick="searchRace()">Chercher</button>
+    </div>
+    <div class="discover-hint" style="font-size:.78rem;opacity:.75;margin-top:.3rem;">
+      Réunion + course suffisent à identifier une course de façon exacte (recommandé -- une faute
+      de frappe sur l'hippodrome n'empêche plus la recherche). Hippodrome seul reste possible si tu
+      n'as pas le numéro de réunion.
+    </div>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;margin-top:.5rem;cursor:pointer;">
+      <input type="checkbox" id="discAutoAudit" style="width:auto;" />
+      Course passée -- lancer l'audit post-course automatiquement dès que le ticket est prêt (walk-forward)
+    </label>
+    <div class="discover-results" id="discoverResults"></div>
+  </div>
+
+  <div class="entry">
+    <div class="entry-col">
+      <textarea id="urlInput" rows="2" placeholder="Colle 1 à 3 URLs pour la même course, une par ligne. Colle les URLs des sources (ou utilise la recherche date/hippodrome). Fusion multi-sources automatique."></textarea>
+      <div class="hint">Une URL par ligne · turfoo.fr recommandé en premier · Geny.com intégré (RSC + anti-bot géré) · 4 sources principales + enrichissement obligatoire</div>
+    </div>
+    <button id="launchBtn" onclick="launchRace()">Lancer l'analyse</button>
+  </div>
+
+  <div class="layout">
+    <aside class="ticker">
+      <h3>Historique</h3>
+      <div id="hfBox" style="font-size:.72rem;line-height:1.4;margin:.2rem 0 .6rem;opacity:.9;"></div>
+      <div id="tickerList"></div>
+      <details id="batchBox" style="margin-top:1rem;font-size:.78rem;">
+        <summary style="cursor:pointer;font-weight:700;">Lot walk-forward (plusieurs courses)</summary>
+        <textarea id="batchText" rows="6" style="width:100%;margin-top:.4rem;" placeholder="Une course par ligne :&#10;2026-10-11 R1C3 Auteuil&#10;2026-10-12 R1C4&#10;13/10/2026 R2 C5"></textarea>
+        <label style="display:block;margin:.3rem 0;"><input type="checkbox" id="batchAudit" checked> audit post-course automatique</label>
+        <button onclick="batchStart()" style="padding:.4rem .7rem;">Lancer le lot</button>
+        <div id="batchStatus" style="margin-top:.5rem;line-height:1.5;"></div>
+      </details>
+    </aside>
+
+    <section class="panel" id="mainPanel">
+      <div class="placeholder">Colle l'URL d'une course pour démarrer l'analyse walk-forward.</div>
+    </section>
+  </div>
+</main>
+
+<script>
+const STAGES = [
+  "EN_ATTENTE",
+  "COLLECTE_EN_COURS",
+  "ENRICHISSEMENT_EN_COURS",
+  "ANALYSE_QUALITATIVE_EN_COURS",
+  "SCORING_EN_COURS",
+  "TICKET_EN_COURS",
+  "TERMINE",
+  "AUDIT_EN_COURS"
+];
+const STAGE_LABELS = {
+  EN_ATTENTE: "1. En attente",
+  COLLECTE_EN_COURS: "2. Collecte",
+  ENRICHISSEMENT_EN_COURS: "3. Enrichissement",
+  ANALYSE_QUALITATIVE_EN_COURS: "4. Analyse",
+  SCORING_EN_COURS: "5. Scoring",
+  TICKET_EN_COURS: "6. Ticket",
+  TERMINE: "Terminé",
+  AUDIT_EN_COURS: "7. Audit post-course",
+  ERREUR: "Erreur"
+};
+let currentRaceId = null;
+let pollTimer = null;
+
+
+  async function loadAppVersion() {
+    try {
+      const r = await fetch('/health');
+      const j = await r.json();
+      const el = document.getElementById('appVersion');
+      if (el && (j.version_build || j.version_ruleset)) {
+        el.textContent = j.version_build || j.version_ruleset;
+      }
+    } catch (e) {}
+  }
+
+async function loadHippodromes() {
+    try {
+      const r = await fetch('/api/hippodromes');
+      const j = await r.json();
+      const sel = document.getElementById('discHippo');
+      if (!sel || !j.hippodromes) return;
+      const cur = sel.value;
+      j.hippodromes.forEach(h => {
+        const o = document.createElement('option');
+        o.value = h; o.textContent = h;
+        sel.appendChild(o);
+      });
+      if (cur) sel.value = cur;
+    } catch (e) { console.warn('hippodromes', e); }
+  }
+  loadAppVersion(); loadHippodromes();
+
+  function toggleDiscover(){
+  document.getElementById('discoverPanel').classList.toggle('open');
+}
+
+async function searchRace(forceContinue, forceReprocess){
+  const date = document.getElementById('discDate').value;
+  const hippo = document.getElementById('discHippo').value.trim();
+  const reunionNum = document.getElementById('discReunion').value;
+  const courseNum = document.getElementById('discCourse').value;
+  const courseName = document.getElementById('discName').value.trim();
+  const autoAudit = document.getElementById('discAutoAudit').checked;
+  const resultsEl = document.getElementById('discoverResults');
+  const identificationExacte = reunionNum && courseNum;
+  if(!date || !(hippo || identificationExacte)){
+    alert("Donne la date, et soit l'hippodrome, soit (réunion + course).");
+    return;
+  }
+  resultsEl.innerHTML = forceContinue
+    ? '<div class="placeholder" style="padding:.5rem 0">Lancement avec les sources déjà trouvées…</div>'
+    : '<div class="placeholder" style="padding:.5rem 0">Recherche sur toutes les sources (CanalTurf, Turfoo, Zone-Turf, Geny)…</div>';
+  try{
+    const res = await fetch('/api/races/auto', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({date, hippodrome: hippo || null,
+        reunion_num: reunionNum ? parseInt(reunionNum) : null,
+        course_num: courseNum ? parseInt(courseNum) : null,
+        course_name: courseName || null, auto_audit: autoAudit,
+        force_continue: !!forceContinue, force_reprocess: !!forceReprocess})});
+    const data = await res.json();
+    if(!res.ok){
+      const detail = data.detail;
+      if(detail && typeof detail === 'object'){
+        const parSource = Object.entries(detail.detail_par_source||{}).map(([nom,info])=>{
+          if(info.url) return `<div class="discover-result">[${nom}] trouvé · <a href="${info.url}" target="_blank" rel="noopener">${info.url}</a></div>`;
+          if(info.ignore) return `<div class="discover-result">[${nom}] ignoré — ${info.ignore}</div>`;
+          return `<div class="discover-result">[${nom}] ${info.erreur||JSON.stringify(info)}</div>`;
+        }).join('');
+        resultsEl.innerHTML = `<div class="error-box">${detail.message||'Erreur'}</div>` + parSource;
+      } else {
+        resultsEl.innerHTML = `<div class="error-box">${(typeof data.detail==='string'?data.detail:(data.message||JSON.stringify(data))).replace(/</g,'&lt;')}</div>`;
+      }
+      return;
+    }
+    // Décision utilisateur : ≥2 sources mais taux < 80%
+    if(data.decision_requise){
+      if(data.raison === 'course_deja_traitee'){
+        const ex = data.course_existante || {};
+        const ver = ex.version_moteur || 'version inconnue';
+        const dist = ex.distance_m ? (ex.distance_m + ' m') : 'distance inconnue';
+        resultsEl.innerHTML = `
+          <div class="error-box" style="border-color:var(--gold);color:var(--parchment)">
+            <strong style="color:var(--gold-bright)">Course déjà traitée</strong><br/>
+            ${(data.message||'').replace(/</g,'&lt;')}<br/><br/>
+            <div style="margin:.55rem 0 .35rem;padding:.45rem .65rem;border-left:3px solid var(--gold);background:rgba(212,175,55,.08);font-size:.82rem">
+              <strong style="color:var(--gold-bright)">Taux de capture (traitement précédent)</strong><br/>
+              ${ex.capture_label || (ex.capture && ex.capture.label_court) || 'non disponible'}
+              ${ex.nb_captures_A!=null ? `<br/><span style="opacity:.9">Ticket A : <strong>${ex.nb_captures_A}/5</strong>${ex.taux_capture_A!=null?` (${(ex.taux_capture_A*100).toFixed(0)}%)`:''}</span>` : ''}
+              ${ex.nb_captures_B!=null ? ` · Ticket B : <strong>${ex.nb_captures_B}/5</strong>${ex.taux_capture_B!=null?` (${(ex.taux_capture_B*100).toFixed(0)}%)`:''}` : ''}
+              ${ex.nb_captures_C!=null ? ` · Ticket C : <strong>${ex.nb_captures_C}/5</strong>${ex.taux_capture_C!=null?` (${(ex.taux_capture_C*100).toFixed(0)}%)`:''}` : ''}
+            </div>
+            <span style="font-size:.75rem;opacity:.85">
+              Dossier : ${ex.folder_hf||'—'} · Statut : ${ex.status||'—'} ·
+              Audit : ${ex.a_un_audit?'oui':'non'} · Moteur d'origine : ${ver}<br/>
+              Moteur actuel : ${data.version_moteur_actuelle||'—'}
+            </span>
+          </div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.7rem">
+            <button type="button" onclick="searchRace(false, true)" style="background:var(--gold);border:none;border-radius:4px;padding:.55rem 1rem;font-weight:700;cursor:pointer;color:#111">
+              Retraiter avec la dernière version
+            </button>
+            <button type="button" onclick="document.getElementById('discoverResults').innerHTML='';document.getElementById('discDate').focus()" style="background:transparent;border:1px solid var(--green-700);border-radius:4px;padding:.55rem 1rem;font-weight:600;cursor:pointer;color:var(--parchment)">
+              Passer à une nouvelle course
+            </button>
+          </div>`;
+        return;
+      }
+
+      const parSource = Object.entries(data.detail_par_source||{}).map(([nom,info])=>{
+        if(info.url) return `<div class="discover-result">[${nom}] ✓ trouvé · <a href="${info.url}" target="_blank" rel="noopener" style="color:var(--gold-bright)">${info.url}</a></div>`;
+        if(info.ignore) return `<div class="discover-result">[${nom}] ⊘ non applicable — ${(info.ignore||'').slice(0,120)}</div>`;
+        return `<div class="discover-result">[${nom}] ✗ ${info.erreur||JSON.stringify(info)}</div>`;
+      }).join('');
+      const urlsList = (data.urls_decouvertes||[]).map(u=>`<div class="discover-result" style="font-size:.72rem">${u}</div>`).join('');
+      resultsEl.innerHTML = `
+        <div class="error-box" style="border-color:var(--gold);color:var(--parchment)">
+          ${data.message||'Taux de collecte sous le seuil.'}<br><br>
+          <strong>Taux :</strong> ${((data.taux_collecte||0)*100).toFixed(0)}%
+          (${data.sources_reussies}/${data.sources_applicables} sources) — seuil ${((data.seuil||0.8)*100).toFixed(0)}%
+        </div>
+        ${parSource}
+        <div style="margin:.8rem 0 .4rem;font-size:.75rem;opacity:.8">URLs disponibles pour continuer :</div>
+        ${urlsList}
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem">
+          <button type="button" onclick="searchRace(true)" style="background:var(--gold);border:none;border-radius:4px;padding:.55rem 1rem;font-weight:700;cursor:pointer;color:#111">
+            Continuer l'exécution
+          </button>
+          <button type="button" onclick="searchRace(false)" style="background:transparent;border:1px solid var(--green-700);border-radius:4px;padding:.55rem 1rem;font-weight:600;cursor:pointer;color:var(--parchment)">
+            Relancer la recherche
+          </button>
+        </div>
+        <div style="font-size:.7rem;opacity:.65;margin-top:.5rem">Continuer = pipeline avec les sources déjà trouvées. Relancer = nouvelle tentative sur toutes les sources.</div>`;
+      return;
+    }
+    // Lancement normal
+    const sourcesHtml = Object.entries(data.sources||{}).map(([nom,info])=>{
+      if(info.url) return `<div class="discover-result">[${nom}] trouvé</div>`;
+      if(info.ignore) return `<div class="discover-result">[${nom}] ignoré</div>`;
+      return `<div class="discover-result">[${nom}] ${info.erreur||''}</div>`;
+    }).join('');
+    resultsEl.innerHTML = sourcesHtml + `<div class="placeholder" style="padding:.5rem 0">Analyse lancée avec ${(data.urls_decouvertes||[]).length} source(s) (taux ${((data.taux_collecte||0)*100).toFixed(0)}%)${data.force_continue?' — forcé sous seuil':''}.</div>`;
+    if(data.race_id){
+      currentRaceId = data.race_id;
+      watchRace(data.race_id);
+      refreshTicker();
+    }
+  }catch(e){
+    resultsEl.innerHTML = `<div class="error-box">${e.message||e}</div>`;
+  }
+}
+
+function pickRace(url){
+  document.getElementById('urlInput').value = url;
+  document.getElementById('discoverPanel').classList.remove('open');
+}
+
+async function launchRace(){
+  const raw = document.getElementById('urlInput').value.trim();
+  const urls = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(urls.length===0){ return; }
+  const btn = document.getElementById('launchBtn');
+  btn.disabled = true;
+  try{
+    const res = await fetch('/api/races', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({urls})});
+    const data = await res.json();
+    if(!res.ok){ throw new Error(data.detail || 'Erreur de lancement'); }
+    currentRaceId = data.race_id;
+    refreshTicker();
+    watchRace(currentRaceId);
+  }catch(e){
+    alert("Erreur : " + e.message);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function watchRace(raceId){
+  clearInterval(pollTimer);
+  renderLoading(raceId);
+  pollTimer = setInterval(async ()=>{
+    const r = await fetch('/api/races/'+raceId);
+    if(!r.ok) return;
+    const race = await r.json();
+    render(race);
+    if(race.status === 'TERMINE' || race.status === 'ERREUR'){  // AUDIT_EN_COURS continue le poll
+      clearInterval(pollTimer);
+      refreshTicker();
+    }
+  }, 2500);
+}
+
+function renderLoading(raceId){
+  document.getElementById('mainPanel').innerHTML =
+    '<div class="placeholder">Initialisation de l\'analyse pour <code>'+raceId+'</code>…</div>';
+}
+
+function stagesHtml(status){
+  // AUDIT is after TERMINE in flow; map for progress bar
+  let idx = STAGES.indexOf(status);
+  if(status === 'ERREUR') idx = -1;
+  const termIdx = STAGES.indexOf('TERMINE');
+  const auditIdx = STAGES.indexOf('AUDIT_EN_COURS');
+  return STAGES.map((s,i)=>{
+    let cls = '';
+    if(status === 'ERREUR'){
+      cls = (i === 0) ? 'done' : 'error';
+    } else if(status === 'AUDIT_EN_COURS'){
+      if(i <= termIdx) cls = 'done';
+      else if(i === auditIdx) cls = 'active';
+    } else if(status === 'TERMINE'){
+      if(i <= termIdx) cls = 'done';
+    } else {
+      if(i < idx) cls = 'done';
+      else if(i === idx) cls = 'active';
+    }
+    return `<div class="stage ${cls}">${STAGE_LABELS[s] || s}</div>`;
+  }).join('');
+}
+
+function pipelineLiveHtml(race){
+  const rep = race.execution_report;
+  if(!rep) return '';
+  const cur = rep.etape_courante;
+  const etapes = rep.etapes || [];
+  let lines = '';
+  etapes.forEach(e => {
+    const st = e.status || 'OK';
+    const icon = st === 'EN_COURS' ? '⏳' : st === 'OK' ? '✓' : st === 'WARNING' ? '⚠' : st === 'SKIPPED' ? '⊘' : '✗';
+    const cls = st === 'EN_COURS' ? 'color:var(--gold-bright)' : st === 'ERROR' ? 'color:#f66' : 'opacity:.85';
+    lines += `<div style="font-family:var(--mono);font-size:.72rem;${cls};margin:.15rem 0">${icon} ${e.nom}${e.duree_sec!=null?' · '+e.duree_sec+'s':''}</div>`;
+  });
+  if(cur){
+    lines += `<div style="font-family:var(--mono);font-size:.75rem;color:var(--gold-bright);margin-top:.4rem;font-weight:600">→ En cours : ${cur}</div>`;
+  }
+  if(!lines) return '';
+  return `<div class="pipeline-live" style="margin:0.8rem 0;padding:0.7rem 0.9rem;border:1px solid var(--green-700);border-radius:6px;background:rgba(0,0,0,.25)">
+    <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin-bottom:.35rem">Pipeline — étapes d'exécution</div>
+    ${lines}
+  </div>`;
+}
+
+function render(race){
+  const panel = document.getElementById('mainPanel');
+  let html = `<div class="stages">${stagesHtml(race.status)}</div>`;
+  html += pipelineLiveHtml(race);
+  // Bouton unique bundle (MD + audit JSON) — demandé 20/09/2026
+  html += `<div style="margin:.5rem 0"><a href="/api/races/${race.id}/bundle/download" target="_blank"
+           style="font-family:var(--mono);font-size:.75rem;color:var(--green-950);background:var(--gold);
+           text-decoration:none;border:none;border-radius:4px;padding:.45rem .9rem;display:inline-block;font-weight:700;">
+           ⬇ Télécharger le bundle (exécution + audit)</a>
+           <span style="font-family:var(--mono);font-size:.68rem;color:var(--parchment-dim);margin-left:.5rem">
+           ZIP unique : rapport d'exécution MD + audit JSON (aucune perte de détail)</span></div>`;
+  html += `<h2>${race.hippodrome || "Course en cours d'identification"}</h2>`;
+  html += `<div class="sub">${race.reunion_course_label || ''} · ${(race.urls||[race.url]).join(' · ')}</div>`;
+
+  if(race.status === 'ERREUR'){
+    html += `<div class="error-box">${(race.error||'Erreur inconnue').replace(/</g,'&lt;')}</div>`;
+    html += `<p style="margin-top:1rem"><button onclick="retryRace('${race.id}')" style="background:var(--gold);border:none;
+             border-radius:4px;padding:.5rem 1rem;font-weight:700;cursor:pointer;">Relancer</button></p>`;
+    panel.innerHTML = html;
+    return;
+  }
+
+  if(!race.result){
+    html += '<div class="placeholder">Pipeline en cours (collecte → enrichissement → analyse → scoring → ticket)… peut prendre plusieurs minutes.</div>';
+    panel.innerHTML = html;
+    return;
+  }
+
+  const res = race.result;
+  const horses = (res.json_output && res.json_output.chevaux) || [];
+  const ticket = res.ticket || [];
+
+  html += `<div class="stat-row">
+    <div class="stat"><div class="label">P(Top5 ⊂ Ticket)</div><div class="value">${pct(res.p_top5_in_ticket)}</div></div>
+    <div class="stat"><div class="label">Masse résiduelle</div><div class="value">${pct(res.masse_residuelle)}</div></div>
+    <div class="stat"><div class="label">Statut</div><div class="value" style="font-size:1rem">${res.validation_status||''}</div></div>
+  </div>`;
+
+  html += '<div class="ticket-strip">';
+  ticket.forEach(t=>{
+    const reserve = t.position.startsWith('R') ? ' reserve' : '';
+    html += `<div class="slot${reserve}">
+      <div class="pos">${t.position} · ${t.categorie||''}</div>
+      <div class="num">${t.numero}</div>
+      <div class="name">${escapeHtml(t.nom)}</div>
+    </div>`;
+  });
+  html += '</div>';
+  html += structHtml('A', res.structures_tickets);
+
+  const resume = res.json_output && res.json_output.resume;
+  if (resume && resume.texte) {
+    html += `<div style="background:var(--parchment-dim,#f3ead6);border-left:3px solid var(--gold-bright,#b8860b);padding:.7rem .9rem;margin:.2rem 0 .9rem;font-size:.9rem;line-height:1.5;">
+      <b>Résumé</b> <small style="opacity:.7">(${escapeHtml(resume.source || '')})</small><br>${escapeHtml(resume.texte)}</div>`;
+  }
+  const anoms = (res.json_output && res.json_output.anomalies_donnees || []).filter(a=>a.severite!=='INFO');
+  if (anoms.length) {
+    html += `<details style="margin:.2rem 0 .9rem;"><summary style="cursor:pointer;font-weight:700;">Contrôle des données : ${anoms.length} anomalie(s)</summary>` +
+      anoms.slice(0,15).map(a=>`<div style="font-size:.82rem;">[${a.severite}] ${a.numero!=null?'n°'+a.numero+' ':''}${escapeHtml(a.champ)} — ${escapeHtml(a.detail)}</div>`).join('') + '</details>';
+  }
+
+  html += stripHtml('Ticket B — quotas par tranche', res.ticket_quotas, res.quotas_info, horses) + structHtml('B', res.structures_tickets);
+  html += stripHtml('Ticket C — ancré marché (mélange marché + PCH ; T1+T2 et T3+T4 dans [3,5])', res.ticket_ancre, res.ancre_info, horses) + structHtml('C', res.structures_tickets);
+
+  html += '<table><thead><tr><th>N°</th><th>Cheval</th><th>Cote</th><th>PCH</th><th>ORDRE_FINAL</th>'+
+          '<th>Tranche</th><th>IFT</th><th>Flags</th></tr></thead><tbody>';
+  horses.slice().sort((a,b)=>b.ordre_final-a.ordre_final).forEach(h=>{
+    const pchVal = h.pch_final;
+    const pchZero = (pchVal === 0 || pchVal === '0');
+    const pchCell = pchZero
+      ? `<span title="Données critiques manquantes (valeur_pmu / poids / modules)" style="color:var(--fail);font-weight:700">0 <small style="font-weight:400">(données manquantes)</small></span>`
+      : fmt(pchVal);
+    html += `<tr><td>${h.numero}</td><td class="nom">${escapeHtml(h.nom)}</td>
+      <td>${h.tranche ? '' : ''}${fmt(horseCote(horses,h))}</td>
+      <td>${pchCell}</td><td>${h.ordre_final}</td>
+      <td>${h.tranche ? `<span class="chip ${h.tranche}">${h.tranche}</span>` : '—'}</td>
+      <td>${h.ift} <span style="color:var(--parchment-dim)">${h.ift_label}</span></td>
+      <td style="font-size:.68rem;color:var(--parchment-dim)">${(h.flags||[]).slice(0,3).join(', ')}</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  if(res.contraintes_dures){
+    html += '<h3 style="font-family:var(--mono);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--parchment-dim);">Contraintes dures (Bloc 9)</h3>';
+    html += '<div class="constraints">';
+    res.contraintes_dures.forEach(c=>{
+      const cls = c.status==='PASS' ? 'pass':'fail';
+      html += `<div class="constraint"><span class="chip ${cls}">${c.status}</span> <span class="rule">${c.rule}</span>
+        <div class="detail">${escapeHtml(c.label||'')} — ${escapeHtml(c.detail||'')}</div></div>`;
+    });
+    html += '</div>';
+  }
+
+  html += `<div class="mention">${res.mention_obligatoire || ''}</div>`;
+
+  html += `<button class="audit-btn" onclick="runAudit('${race.id}')">Lancer l'audit post-course</button>`;
+  html += `<div class="audit-box" id="auditBox">${race.audit ? '' : ''}</div>`;
+
+  panel.innerHTML = html;
+  if(race.audit){ renderAudit(race.audit, race.id); }
+}
+
+async function runAudit(raceId){
+  const box = document.getElementById('auditBox');
+  box.innerHTML = "<div class=\"placeholder\">Recherche de l'arrivée officielle (2 sources)...</div>";
+  try{
+    const res = await fetch(`/api/races/${raceId}/audit`, {method:'POST'});
+    const data = await res.json();
+    if(!res.ok){ box.innerHTML = `<div class="error-box">${escapeHtml(data.detail||'Erreur')}</div>`; return; }
+    renderAudit(data, raceId);
+  }catch(e){
+    box.innerHTML = `<div class="error-box">Erreur : ${e.message}</div>`;
+  }
+}
+
+function resReelHtml(rr, cause){
+  let t = '';
+  if(rr){ t += `<div style="font-size:.78rem;margin-top:.3rem;">Résultat réel : ${rr.rang!=null?('arrivé '+rr.rang+'e'):'non classé'}${rr.incident?(' — incident officiel : '+escapeHtml(rr.incident)):''}${rr.ecart?(' — écart '+escapeHtml(String(rr.ecart))):''}</div>`; if(rr.commentaire){ t += `<div style="font-size:.76rem;opacity:.85;font-style:italic;">Commentaire officiel : « ${escapeHtml(rr.commentaire)} »</div>`; } }
+  if(cause){
+    const lab = {INCIDENT_COURSE:"incident de course (pas une erreur d'évaluation)", PROCHE_DU_TOP5:'proche du top 5 (6e-8e)', HORS_PLACE:"hors place (vraie erreur d'évaluation)", NON_DOCUMENTE:'non documenté'}[cause] || cause;
+    t += `<div style="font-size:.78rem;">Lecture : <b>${lab}</b></div>`;
+  }
+  return t;
+}
+function explIaHtml(e){
+  if(!e) return '';
+  return `<div style="font-size:.78rem;margin-top:.3rem;border-left:2px solid var(--gold-bright);padding-left:.5rem;"><b>${escapeHtml(e.cause)}</b> (${escapeHtml(e.source||'')}) — ${escapeHtml(e.explication||'')}${e.module_en_cause?` — module en cause : <b>${escapeHtml(e.module_en_cause)}</b>`:''}<br><i>« ${escapeHtml(e.preuve||'')} »</i></div>`;
+}
+function bilanHtml(b){
+  if(!b) return '';
+  const rg = Object.entries(b.rangs_reels_du_ticket||{}).map(([n,r])=>`n°${n}: ${r!=null?r+'e':'—'}`).join(' · ');
+  return `<div class="audit-stat" style="font-size:.8rem;">Rang réel de nos 8 chevaux : ${rg}<br>Rang moyen : <b>${b.rang_moyen_reel ?? '—'}</b> · incidents de course : <b>${b.nb_incidents_course}</b> · proches (6e-8e) : <b>${b.nb_proches_6e_8e}</b> · hors place : <b>${b.nb_hors_place}</b></div>`;
+}
+
+function structHtml(lettre, structs){
+  const st = structs && structs[lettre]; if(!st) return '';
+  const pm = st.probabilites_modele || {};
+  const f = x => `<span class="slot" style="display:inline-block;min-width:0;padding:.25rem .5rem;margin:.1rem;"><b>${x.role}</b> n°${x.numero} ${escapeHtml(x.nom)}</span>`;
+  const p = (v, d) => v != null ? (v*100).toFixed(d) + '%' : '—';
+  return `<div class="audit-stat" style="font-size:.82rem;margin:-.6rem 0 1rem;">
+    <b>Champ réduit — ticket ${lettre}</b> : bases ${st.bases.map(f).join('')}<br>compléments ${st.complements.map(f).join('')}<br>
+    ordre prévu : <b>${(st.ordre_prevu||[]).join(' – ')}</b> · P(désordre) ${p(pm.desordre,1)} · P(bonus) ${p(pm.bonus,2)} · P(ordre) ${p(pm.ordre,3)}</div>`;
+}
+function issueHtml(sba, lettre){
+  const i = sba && sba.issue; if(!i || i.arrivee_incomplete) return '';
+  const lib = {ORDRE:'ORDRE', BONUS:'BONUS', DESORDRE:'DÉSORDRE'}[i.niveau_gain];
+  const col = i.niveau_gain ? 'var(--pass)' : '#e6a89c';
+  return `<div class="audit-stat" style="font-size:.82rem;">Champ réduit ticket ${lettre} : <b style="color:${col}">${lib || 'aucun gain'}</b>
+    · bases dans le top 5 : <b>${i.nb_bases_dans_top5}/3</b> (top 3 : ${i.nb_bases_dans_top3}/3) · compléments dans le top 5 : ${i.nb_complements_dans_top5}
+    ${i.bases_manquees && i.bases_manquees.length ? ' · bases manquées : n°' + i.bases_manquees.join(', n°') : ''}
+    ${i.arrivee_hors_ticket && i.arrivee_hors_ticket.length ? ' · hors ticket : n°' + i.arrivee_hors_ticket.join(', n°') : ''}</div>`;
+}
+function stripHtml(titre, slots, info, horses){
+  slots = slots || []; if(!slots.length) return '';
+  const qi = info || {};
+  const trOf = n => { const h = (horses||[]).find(x=>x.numero===n); return h && h.tranche ? h.tranche : ''; };
+  let t = `<div style="font-weight:700;margin:.2rem 0 .3rem;">${titre}
+      <small style="font-weight:400">(T1+T2 : ${qi.t1_t2 ?? '—'} · T3+T4 : ${qi.t3_t4 ?? '—'}${qi.applied_grid ? ' · grille ' + qi.applied_grid.join('-') + (qi.target_grid ? ' (cible ' + qi.target_grid.join('-') + ')' : '') : ''} · captures attendues : ${qi.captures_attendues_modele ?? '—'} vs ticket A : ${qi.captures_attendues_ticket_A ?? '—'})</small></div>`;
+  t += '<div class="ticket-strip">';
+  slots.forEach(s=>{ t += `<div class="slot"><div class="pos">${s.position} · ${trOf(s.numero)}</div><div class="num">${s.numero}</div><div class="name">${escapeHtml(s.nom)}</div></div>`; });
+  return t + '</div>';
+}
+function auditExtraHtml(a, lettre, titre){
+  const x = a['audit_ticket_'+lettre];
+  if(!x || x.erreur) return '';
+  const cmp = a.comparaison_tickets || {};
+  let t = `<h3 style="font-family:var(--display);font-size:1.15rem;margin:1.4rem 0 .6rem;border-top:1px solid var(--parchment-dim);padding-top:1rem;">Audit post-course — Ticket ${lettre} (${titre})</h3>`;
+  t += `<div class="audit-stat">Captures : <b>${x.nb_captures}/5</b> (Ticket A : ${cmp.A_captures ?? '—'}/5)</div>` + bilanHtml(x.bilan_ticket);
+  t += issueHtml(x.structure_bases_complements, lettre);
+  const cap = x.chevaux_captures || [];
+  if(cap.length){
+    t += `<div style="font-weight:700;color:var(--pass);margin-bottom:.4rem;">Chevaux capturés par le ticket ${lettre}</div>`;
+    t += '<div style="font-family:var(--mono);font-size:.78rem;margin-bottom:.8rem;">' + cap.map(c=>`${c.rang_reel}. n°${c.numero} ${escapeHtml(c.nom)}`).join(' · ') + '</div>';
+  }
+  const mq = x.chevaux_manques || [];
+  if(mq.length){
+    t += `<div style="font-weight:700;color:#e6a89c;margin-bottom:.4rem;">Chevaux du top 5 manqués par le ticket ${lettre}</div>`;
+    mq.forEach(m=>{ t += `<div class="miss-card"><span class="title">${m.rang_reel}. n°${m.numero} ${escapeHtml(m.nom)}</span> — cote pré-course : ${m.cote_pre_course ?? '—'} · tranche : ${m.notre_tranche ?? '—'} · notre PCH : ${m.notre_pch ?? '—'}${resReelHtml(m.resultat_reel)}${explIaHtml(m.explication_post_course)}</div>`; });
+  } else { t += `<div class="audit-stat" style="color:var(--pass)">Aucun cheval du top 5 manqué par le ticket ${lettre}.</div>`; }
+  const hh = x.ticket_hors_top5 || [];
+  if(hh.length){
+    t += `<div style="font-weight:700;color:var(--gold-bright);margin:.8rem 0 .4rem;">Chevaux du ticket ${lettre} hors du top 5 réel</div>`;
+    hh.forEach(c=>{ t += `<div class="over-card"><span class="title">${c.position_ticket} — n°${c.numero} ${escapeHtml(c.nom)}</span> — cote pré-course : ${c.cote_pre_course ?? '—'}${resReelHtml(c.resultat_reel, c.cause_deterministe)}${explIaHtml(c.explication_post_course)}</div>`; });
+  }
+  return t;
+}
+
+function renderAudit(a, raceId){
+  const box = document.getElementById('auditBox');
+  let html = '<h3 style="font-family:var(--display);font-size:1.15rem;margin-bottom:.6rem;">Audit post-course — Ticket A (protocole actuel)</h3>';
+
+  const conf = a.confirmation_sources || {};
+  if(conf.statut === 'CONFIRME_2_SOURCES'){
+    html += `<div class="audit-stat" style="color:var(--pass)">✓ Arrivée confirmée par 2 sources indépendantes (API PMU officielle + Turfoo)</div>`;
+  } else if(conf.statut === 'DESACCORD_ENTRE_SOURCES'){
+    html += `<div class="audit-stat" style="color:var(--fail)">⚠ Désaccord entre les 2 sources — ${escapeHtml(conf.desaccord||'')}</div>`;
+  } else if(conf.statut === 'NON_CONFIRME_1_SOURCE'){
+    html += `<div class="audit-stat" style="color:var(--fail)">⚠ Une seule source a répondu — ${escapeHtml(conf.avertissement||'non confirmé par recoupement')}</div>`;
+  }
+
+  html += `<div class="audit-stat">Taux de capture (désordre) : <b>${a.nb_captures ?? '—'}/5</b> (${a.taux_capture_desordre!=null ? (a.taux_capture_desordre*100).toFixed(0)+'%' : '—'})</div>`;
+
+  html += issueHtml(a.structure_bases_complements, 'A');
+  html += bilanHtml(a.bilan_ticket);
+  const top5 = a.arrivee_officielle_top5 || [];
+  html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--parchment-dim);margin-bottom:.8rem;">Arrivée officielle : ' +
+    top5.map(h=>`${h.rang}. n°${h.numero} ${escapeHtml(h.nom)}`).join(' · ') + '</div>';
+
+  const captures = a.chevaux_captures || [];
+  if(captures.length){
+    html += '<div style="font-weight:700;color:var(--pass);margin-bottom:.4rem;">Chevaux capturés (dans le ticket ET dans le top 5 réel)</div>';
+    html += '<div style="font-family:var(--mono);font-size:.78rem;margin-bottom:.8rem;">' +
+      captures.map(c=>`${c.rang_reel}. n°${c.numero} ${escapeHtml(c.nom)}`).join(' · ') + '</div>';
+  }
+
+  const manques = a.chevaux_manques || [];
+  if(manques.length){
+    html += '<div style="font-weight:700;color:#e6a89c;margin-bottom:.4rem;">Chevaux du top 5 manqués</div>';
+    manques.forEach(m=>{
+      html += `<div class="miss-card"><span class="title">${m.rang_reel}. n°${m.numero} ${escapeHtml(m.nom)}</span> — cote pré-course : ${m.cote_pre_course ?? '—'} · tranche : ${m.notre_tranche ?? '—'} · notre PCH : ${m.notre_pch ?? '—'}`;
+      if(m.signaux_sous_evalues && m.signaux_sous_evalues.length){
+        html += '<ul>' + m.signaux_sous_evalues.map(s=>`<li>${escapeHtml(s)}</li>`).join('') + '</ul>';
+      }
+      if(m.note){ html += `<div style="margin-top:.3rem;font-style:italic">${escapeHtml(m.note)}</div>`; }
+      html += resReelHtml(m.resultat_reel) + explIaHtml(m.explication_post_course);
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="audit-stat" style="color:var(--pass)">Aucun cheval du top 5 manqué.</div>';
+  }
+
+  const horsTop5 = a.ticket_hors_top5 || [];
+  if(horsTop5.length){
+    html += '<div style="font-weight:700;color:var(--gold-bright);margin:.8rem 0 .4rem;">Nos chevaux hors du top 5 réel</div>';
+    horsTop5.forEach(h=>{
+      html += `<div class="over-card"><span class="title">${h.position_ticket} — n°${h.numero} ${escapeHtml(h.nom)}</span> — cote pré-course : ${h.cote_pre_course ?? '—'}`;
+      if(h.signaux_surevalues && h.signaux_surevalues.length){
+        html += '<ul>' + h.signaux_surevalues.map(s=>`<li>${escapeHtml(s)}</li>`).join('') + '</ul>';
+      }
+      html += resReelHtml(h.resultat_reel, h.cause_deterministe) + explIaHtml(h.explication_post_course);
+      html += '</div>';
+    });
+  }
+
+  if(a.impact_supra_note){ html += `<div class="audit-note">${escapeHtml(a.impact_supra_note)}</div>`; }
+  // Renommé côté backend le 06/08/2026 (comptes_rendus_presse -> analyse_presse_post_course,
+  // pour éviter la confusion avec la collecte ICP pré-course qui, elle, fonctionne) --
+  // référence corrigée ici le 08/08/2026 (plantait tout l'audit sinon).
+  const analysePresse = a.analyse_presse_post_course || a.comptes_rendus_presse;
+  if(analysePresse && analysePresse.disponible){
+    const sy = analysePresse.synthese || {};
+    html += `<div class="audit-note"><b>Analyse IA post-course</b> (${escapeHtml(analysePresse.fournisseur || 'PMU officiel')}) : ${sy.chevaux_expliques ?? 0}/${sy.chevaux_analyses ?? 0} chevaux expliqués`
+      + (sy.par_cause ? ' — causes : ' + Object.entries(sy.par_cause).map(([k,v])=>`${escapeHtml(k)} ×${v}`).join(', ') : '')
+      + (sy.modules_en_cause && Object.keys(sy.modules_en_cause).length ? ' — modules en cause : ' + Object.entries(sy.modules_en_cause).map(([k,v])=>`${escapeHtml(k)} ×${v}`).join(', ') : '')
+      + (analysePresse.rejetees ? ` — ${analysePresse.rejetees} explication(s) IA rejetée(s) faute de preuve dans le texte` : '') + '</div>';
+  } else if(analysePresse && analysePresse.raison){
+    html += `<div class="audit-note">Analyse post-course : ${escapeHtml(analysePresse.raison)}</div>`;
+  }
+
+  if(raceId){
+    // Bouton unique en bas : même endpoint bundle (MD + audit JSON)
+    html += `<p style="margin-top:1rem"><a href="/api/races/${raceId}/bundle/download" class="audit-btn"
+             style="display:inline-block;text-decoration:none;font-weight:700;">
+             ⬇ Télécharger le bundle complet (exécution + audit) — ZIP</a></p>`;
+  }
+
+  
+  html += auditExtraHtml(a, 'B', 'quotas par tranche');
+  html += auditExtraHtml(a, 'C', 'ancré marché : mélange marché + PCH');
+
+  box.innerHTML = html;
+}
+
+function horseCote(horses, h){
+  return h.cote ?? '';
+}
+function pct(v){ return (v===null || v===undefined) ? '—' : (v*100).toFixed(1)+'%'; }
+function fmt(v){ return (v===null || v===undefined || v==='') ? '—' : v; }
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function retryRace(raceId){
+  await fetch('/api/races/'+raceId+'/retry', {method:'POST'});
+  watchRace(raceId);
+}
+
+async function refreshTicker(){
+  const r = await fetch('/api/races?limit=30');
+  const races = await r.json();
+  const list = document.getElementById('tickerList');
+  if(races.length===0){ list.innerHTML = '<div class="placeholder" style="padding:1rem 0">Aucune course encore.</div>'; return; }
+  list.innerHTML = races.map(r=>`
+    <button class="ticker-item" onclick="watchRace('${r.id}')">
+      <span class="hippo">${escapeHtml(r.hippodrome || r.reunion_course_label || 'Course')}</span>
+      <span class="st">${STAGE_LABELS[r.status] || r.status}</span>
+    </button>`).join('');
+}
+
+async function loadHfStatus(){
+  const box = document.getElementById('hfBox'); if(!box) return;
+  try{
+    const st = await (await fetch('/api/history/hf/status')).json();
+    if(!st.actif){
+      box.innerHTML = `☁ Sauvegarde Hugging Face : <b>inactive</b> — renseigner HF_TOKEN et HF_DATASET_REPO dans Render. <a href="#" onclick="hfTest();return false;">tester HF</a> · <a href="#" onclick="aiTest();return false;">tester l'IA</a>`
+      + ` <br><a href="/api/export/analyse.zip"><b>⬇ exporter toutes les courses pour analyse (zip)</b></a>`;
+      return;
+    }
+    const last = st.derniere_sauvegarde ? ('dernier envoi : ' + escapeHtml(st.derniere_sauvegarde.dossier || st.derniere_sauvegarde.id)) : 'aucun envoi depuis le démarrage';
+    box.innerHTML = `☁ Hugging Face : <b>actif</b> (${escapeHtml(st.depot)}) · ${st.courses_locales} course(s) locale(s) · ${last}`
+      + (st.derniere_erreur ? `<br><span style="color:#e6a89c">⚠ ${escapeHtml(st.derniere_erreur)}</span>` : '')
+      + ` <br><a href="#" onclick="hfRestore();return false;">restaurer l'historique</a> · <a href="#" onclick="hfSyncAll();return false;">tout envoyer</a> · <a href="#" onclick="hfTest();return false;">tester HF</a> · <a href="#" onclick="aiTest();return false;">tester l'IA</a>`
+      + ` <br><a href="/api/export/analyse.zip"><b>⬇ exporter toutes les courses pour analyse (zip)</b></a>`;
+  }catch(e){ box.textContent = ''; }
+}
+async function hfTest(){ const r = await (await fetch('/api/history/hf/test',{method:'POST'})).json(); alert(r.ok ? 'Connexion Hugging Face OK (écriture + relecture).' : 'Échec : ' + (r.raison || JSON.stringify(r))); loadHfStatus(); }
+async function aiTest(){
+  alert('Test des IA en cours (jusqu\'à 2 minutes)…');
+  const r = await (await fetch('/api/ai/test',{method:'POST'})).json();
+  const bloc = (nom, v) => {
+    if(!v || !v.configure) return nom.toUpperCase()+' : non configurée';
+    let t = nom.toUpperCase()+' : '+(v.ok ? 'OK' : 'ÉCHEC');
+    if(v.essais){
+      t += '\n' + v.essais.map(e=>'  • '+e.modele+' → '+(e.ok?('OK ('+e.duree_s+' s)'):e.erreur)).join('\n');
+      t += '\n  Modèles disponibles : ' + (Array.isArray(v.modeles_disponibles) ? v.modeles_disponibles.join(', ') : v.modeles_disponibles);
+    } else if(!v.ok){ t += ' — ' + (v.erreur || ''); }
+    return t;
+  };
+  alert(['groq','gemini','anthropic'].map(k=>bloc(k, r[k])).join('\n\n'));
+}
+async function hfRestore(){ const r = await (await fetch('/api/history/hf/restore',{method:'POST'})).json(); alert(r.ok ? `${r.restaurees} course(s) restaurée(s), ${r.deja_presentes} déjà présentes, ${r.echecs} échec(s).` : 'Échec : ' + (r.raison || '')); refreshTicker(); loadHfStatus(); }
+async function hfSyncAll(){ const r = await (await fetch('/api/history/hf/sync-all',{method:'POST'})).json(); alert(r.ok ? `${r.mises_en_file} course(s) mises en file d'envoi.` : 'Échec : ' + (r.raison || '')); loadHfStatus(); }
+
+async function batchStart(){
+  const txt = document.getElementById('batchText').value;
+  const r = await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({courses: txt, auto_audit: document.getElementById('batchAudit').checked})});
+  const j = await r.json();
+  if(!r.ok){ alert(typeof j.detail==='string' ? j.detail : JSON.stringify(j.detail)); return; }
+  try{ localStorage.setItem('vantageBatch', j.batch_id); }catch(e){}
+  batchRefresh();
+}
+async function batchRefresh(){
+  const box = document.getElementById('batchStatus'); if(!box) return;
+  let id = null; try{ id = localStorage.getItem('vantageBatch'); }catch(e){}
+  if(!id){ try{ const l = await (await fetch('/api/batch')).json(); if(l.length) id = l[l.length-1].batch_id; }catch(e){} }
+  if(!id){ box.textContent=''; return; }
+  try{
+    const r = await fetch('/api/batch/'+id); if(!r.ok){ box.textContent=''; return; }
+    const s = await r.json();
+    const c = s.compte || {};
+    const lignes = (s.items||[]).filter(i=>i.status==='FAILED').slice(0,5).map(i=>`<div style="color:#e6a89c">✗ ${i.date} R${i.reunion_num}C${i.course_num} : ${escapeHtml(i.erreur||'')}</div>`).join('');
+    box.innerHTML = `Lot <b>${id}</b> : ${s.total} course(s) — terminées <b>${c.DONE||0}</b> · en cours ${c.RUNNING||0} · en attente ${c.PENDING||0} · échecs <b>${c.FAILED||0}</b>`
+      + `<br><a href="/api/batch/${id}/export.csv">⬇ export CSV</a> · <a href="#" onclick="batchRetry('${id}');return false;">relancer les échecs</a> · <a href="#" onclick="batchCancel('${id}');return false;">annuler</a>` + lignes
+      + (s.termine ? '<br><b>Lot terminé.</b>' : '');
+    refreshTicker();
+  }catch(e){}
+}
+async function batchRetry(id){ await fetch('/api/batch/'+id+'/retry-failed',{method:'POST'}); batchRefresh(); }
+async function batchCancel(id){ if(confirm('Annuler les courses en attente ?')){ await fetch('/api/batch/'+id+'/cancel',{method:'POST'}); batchRefresh(); } }
+
+refreshTicker(); loadHfStatus(); setInterval(loadHfStatus, 60000); batchRefresh(); setInterval(batchRefresh, 15000);
+</script>
+</body>
+</html>

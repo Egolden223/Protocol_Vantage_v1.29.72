@@ -1,0 +1,36 @@
+# Protocol Vantage v1.29.14 — dépendances installées AVANT toute exécution
+# Render / GitHub Actions / Docker : pip install -r requirements.txt
+#
+# Mode prod = 100 % Python (pas de LLM requis).
+# curl_cffi est OBLIGATOIRE (anti-bot Turfoo / sites hippiques).
+
+# --- Runtime web ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+python-multipart>=0.0.9
+
+# --- HTTP / scraping ---
+curl_cffi>=0.7.0
+certifi>=2024.2.2
+beautifulsoup4>=4.12
+lxml>=5.2
+requests>=2.31.0
+
+# --- Tests (CI optionnel, inoffensif en prod) ---
+pytest>=8.0
+
+# --- Optionnels (NON requis pour le ticket certifié) ---
+# Le superviseur IA (app/llm/supervisor.py, AI_SUPERVISOR/AI_QUALITATIVE_SIGNAL)
+# n'a besoin d'AUCUN package supplémentaire : il parle en HTTP brut (urllib,
+# déjà dans la stdlib) à Groq/Gemini/Anthropic. Une simple variable d'env
+# (GROQ_API_KEY etc.) suffit à l'activer -- rien à installer ici.
+
+# --- Apprentissage continu (v1.29.15) -- app/ml/continuous_learning.py ---
+# Sans ces 2 packages, le Ranker shadow reste en heuristique déterministe
+# (comportement pré-v1.29.15, inoffensif) -- installés ici pour que
+# l'apprentissage continu fonctionne par défaut, comme demandé.
+lightgbm>=4.0
+scikit-learn>=1.4       # uniquement pour l'AUC in-sample indicative (métrique de suivi)
+
+# --- Sauvegarde Hugging Face (app/integrations/hf_export.py) : HTTP direct, AUCUN package requis (v1.29.46).

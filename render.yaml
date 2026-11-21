@@ -1,0 +1,85 @@
+# Render Blueprint — à la racine du repo GitHub
+# Dashboard Render : New → Blueprint → ce fichier
+services:
+  - type: web
+    name: protocol-vantage
+    runtime: python
+    plan: starter
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && python -c "from curl_cffi import requests; print('curl_cffi OK')"
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    # Disque persistant (v1.29.15) -- CORRECTIF IMPORTANT : sans ce bloc,
+    # ce Blueprint (runtime: python, PAS le Dockerfile) n'avait JUSQU'ICI
+    # AUCUN disque persistant attaché. DATABASE_PATH retombait sur son
+    # défaut local (app/config.py), effacé à CHAQUE redéploiement --
+    # l'historique walk-forward (SQLite, audits, rapports d'exécution)
+    # ne survivait donc pas d'un déploiement à l'autre. Nécessaire aussi
+    # pour que l'apprentissage continu (training_log.jsonl) soit
+    # vraiment continu. Le plan "starter" supporte les disques persistants
+    # (facturés en plus, cf. tarifs Render) -- ajuster sizeGB si besoin.
+    disk:
+      name: vantage-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: DATABASE_PATH
+        value: /data/vantage.db
+      - key: VANTAGE_ML_DATA_DIR
+        value: /data/ml
+      - key: VANTAGE_CORPUS_DIR       # v1.29.63 : cache du corpus open-pmu-api (corde, H2H, classements) sur le disque PERSISTANT
+        value: /data/pmu_historique_cache
+      - key: VANTAGE_CLASSEMENTS_DIR  # v1.29.63 : classements driver / entraîneur (B11, B12, SSFO)
+        value: /data/classements
+      - key: SCRAPERAPI_KEY
+        sync: false  # à renseigner dans le dashboard Render (secret)
+      - key: FIRECRAWL_API_KEY   # v1.29.66 : 2e fournisseur anti-bot (relais quand le quota ScraperAPI est épuisé)
+        sync: false
+      - key: FETCH_CUSTOM_KEY    # v1.29.66 : 3e fournisseur générique (service au choix) : clé + gabarit d'URL avec {key} et {url}
+        sync: false
+      - key: FETCH_CUSTOM_URL_TEMPLATE
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false  # 3e repli de la chaîne Groq->Gemini->Anthropic (v1.29.16)
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5-5
+      - key: AI_PROVIDER_ORDER
+        value: "gemini,groq,anthropic"  # clés gratuites d'abord ; Gemini = grand contexte (pages entières)
+      - key: AI_COLLECTION_FALLBACK
+        value: "1"   # collecte IA uniquement si TOUTES les sources Python échouent
+      - key: AI_QUALITATIVE_LLM
+        value: "1"   # signaux IA AI01..AI08 (commentaires + presse), bornés +/-6 PCH par cheval ; 0 = coupé
+      - key: AI_REPAIR
+        value: "1"   # réparation IA des champs manquants / suspects (preuve vérifiée dans le texte)
+      - key: AI_POSTRACE
+        value: "1"   # audit post-course : explication IA de chaque manqué / sur-évalué (preuve vérifiée)
+      - key: AI_SUMMARY
+        value: "1"   # résumé de course en langage clair
+      - key: GOOGLE_CSE_API_KEY
+        sync: false  # v1.29.40 : recherche web 2.7 (sans clé = DuckDuckGo seul, fragile)
+      - key: GOOGLE_CSE_CX
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false  # optionnel
+      - key: AI_SUPERVISOR
+        sync: false
+      - key: AI_APPLY_BOUNDED_REPAIRS
+        sync: false
+      - key: AI_QUALITATIVE_SIGNAL
+        sync: false  # 0/absent par défaut -- RAH-270 n'influence le ticket que si mis à 1 explicitement
+      - key: HF_TOKEN
+        sync: false  # jeton Hugging Face avec droit d'ECRITURE (secret) : sauvegarde automatique de chaque course + audit
+      - key: HF_DATASET_REPO
+        sync: false  # ex: "golden/protocol-vantage-races" (dataset PRIVE, créé automatiquement s'il n'existe pas)
+      - key: HF_AUTOSAVE
+        value: "1"
+      - key: HF_RESTORE_ON_START
+        value: "1"   # recharge l'historique depuis Hugging Face à chaque démarrage de Render
+      - key: VANTAGE_MIN_PARTANTS
+        value: "12"
+
